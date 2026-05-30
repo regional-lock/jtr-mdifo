@@ -446,14 +446,15 @@ async function convert() {
       vHtml += `<div class="resolution-big"><div class="res-value">${w}×${h}</div><div class="res-label">${label}</div></div>`;
     }
     const fmt   = getField(f, 'Format/Info', 'Format') || '';
-    const depth = getField(f, 'Bit depth');
-    vHtml += makeVideoStat('Codec',      fmt + (depth ? ` / ${depth}b` : ''));
-    vHtml += makeVideoStat('Aspect',     getField(f, 'Display aspect ratio'));
-    vHtml += makeVideoStat('Frame rate', getField(f, 'Frame rate'));
-    vHtml += makeVideoStat('Bit rate',   getField(f, 'Bit rate'));
-    const profile = getField(f, 'Format profile', 'Codec profile');
-    if (profile) vHtml += makeVideoStat('Profile', profile);
-  }
+const depth = getField(f, 'Bit depth');
+const depthClean = depth ? depth.replace(/\s*bits?/i, '').trim() : null;
+vHtml += makeVideoStat('Codec',      fmt + (depthClean ? ` / ${depthClean}-bit` : ''));
+vHtml += makeVideoStat('Aspect',     getField(f, 'Display aspect ratio'));
+vHtml += makeVideoStat('Frame rate', getField(f, 'Frame rate'));
+vHtml += makeVideoStat('Bit rate',   getField(f, 'Bit rate'));
+const profile = getField(f, 'Format profile', 'Codec profile');
+if (profile) vHtml += makeVideoStat('Profile', profile);
+}
   document.getElementById('secVideo').innerHTML = vHtml;
 
   // ── Audio section ──
