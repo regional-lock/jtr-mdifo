@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediaInfo Card Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#080b12;font-family:'Inter',sans-serif;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 20px;gap:20px}
+
+.app-header{text-align:center}
+.logo{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6px}
+.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.logo h1{font-size:1rem;font-weight:700;color:#fff;letter-spacing:0.08em;font-family:'JetBrains Mono',monospace}
+.app-header p{font-size:0.72rem;color:#475569;margin-top:4px}
+
+.editor-wrap{display:flex;gap:12px;width:100%;max-width:1060px;align-items:flex-start}
+textarea{flex:1;min-height:200px;background:#0d1117;border:1px solid #1e2d42;border-radius:10px;color:#c9d8ec;font-family:'JetBrains Mono',monospace;font-size:0.68rem;line-height:1.8;padding:14px;resize:vertical;outline:none;transition:border-color 0.2s}
+textarea:focus{border-color:#3b82f6}
+textarea::placeholder{color:#2a3a52}
+
+.btn-group{display:flex;flex-direction:column;gap:8px}
+button{cursor:pointer;border:none;border-radius:8px;padding:10px 18px;font-family:'Inter',sans-serif;font-weight:600;font-size:0.73rem;letter-spacing:0.03em;transition:all 0.15s;white-space:nowrap}
+.btn-primary{background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;box-shadow:0 4px 14px rgba(59,130,246,0.35)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(59,130,246,0.45)}
+.btn-png{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 4px 14px rgba(16,185,129,0.3)}
+.btn-png:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(16,185,129,0.4)}
+.btn-png:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.btn-secondary{background:#0d1117;color:#64748b;border:1px solid #1e2d42}
+.btn-secondary:hover{border-color:#3b82f6;color:#94a3b8}
+
+.error-msg{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:8px;padding:10px 14px;color:#f87171;font-size:0.73rem;display:none;width:100%;max-width:1060px}
+
+/* ── CARD ── */
+.result-wrap{width:100%;max-width:1060px}
+#mediaCard{
+  background:#0b0f1a;
+  border:1px solid rgba(255,255,255,0.07);
+  border-radius:20px;
+  overflow:hidden;
+  font-family:'Inter',sans-serif;
+  position:relative;
+}
+.card-glow{
+  position:absolute;inset:0;pointer-events:none;border-radius:20px;
+  background:radial-gradient(ellipse 60% 30% at 50% 0%, rgba(59,130,246,0.12) 0%, transparent 70%);
+  z-index:0;
+}
+
+/* header */
+.card-header{
+  position:relative;z-index:1;
+  background:rgba(255,255,255,0.03);
+  border-bottom:1px solid rgba(255,255,255,0.05);
+  padding:18px 24px;
+  display:flex;align-items:center;gap:14px;
+}
+.header-icon{
+  width:38px;height:38px;border-radius:10px;
+  background:linear-gradient(135deg,#1d4ed8,#4f46e5);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;flex-shrink:0;
+}
+.header-text{flex:1;min-width:0}
+.filename{font-family:'JetBrains Mono',monospace;font-size:0.85rem;font-weight:700;color:#f8fafc;word-break:break-all;line-height:1.4}
+.file-meta{font-size:0.65rem;color:#475569;margin-top:2px;letter-spacing:0.06em;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+.header-badge{
+  background:rgba(59,130,246,0.15);
+  border:1px solid rgba(59,130,246,0.25);
+  border-radius:6px;padding:4px 10px;
+  font-size:0.64rem;font-weight:700;color:#60a5fa;
+  letter-spacing:0.1em;text-transform:uppercase;
+  font-family:'JetBrains Mono',monospace;
+  flex-shrink:0;
+}
+
+/* body */
+.card-body{display:grid;grid-template-columns:1fr 1fr 1fr;position:relative;z-index:1}
+.section{padding:22px 24px;border-right:1px solid rgba(255,255,255,0.04)}
+.section:last-child{border-right:none}
+
+.section-title{
+  font-size:0.6rem;font-weight:700;letter-spacing:0.2em;
+  text-transform:uppercase;margin-bottom:16px;
+  display:flex;align-items:center;gap:8px;
+  font-family:'JetBrains Mono',monospace;
+}
+.title-pip{width:3px;height:14px;border-radius:2px;flex-shrink:0}
+.section-general .section-title{color:#3b82f6}
+.section-general .title-pip{background:#3b82f6}
+.section-video .section-title{color:#a855f7}
+.section-video .title-pip{background:#a855f7}
+.section-audio .section-title{color:#f59e0b}
+.section-audio .title-pip{background:#f59e0b}
+
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:9px}
+.lbl{font-size:0.68rem;color:#475569;white-space:nowrap;flex-shrink:0}
+.val{font-size:0.72rem;font-weight:600;color:#e2e8f0;text-align:right;font-family:'JetBrains Mono',monospace}
+
+/* video badge-style rows */
+.video-stat{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 10px;border-radius:7px;
+  background:rgba(168,85,247,0.06);
+  border:1px solid rgba(168,85,247,0.1);
+  margin-bottom:7px;
+}
+.video-stat .lbl{font-size:0.67rem;color:#7c3aed}
+.video-stat .val{font-size:0.7rem;color:#d8b4fe}
+
+/* audio items */
+.audio-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:8px;
+  background:rgba(245,158,11,0.05);
+  border:1px solid rgba(245,158,11,0.1);
+  margin-bottom:8px;
+}
+.audio-info{flex:1;min-width:0}
+.audio-lang{font-size:0.71rem;font-weight:600;color:#fcd34d;font-family:'JetBrains Mono',monospace}
+.audio-detail{font-size:0.63rem;color:#78716c;margin-top:2px;font-family:'JetBrains Mono',monospace}
+
+.flag-img-card{width:26px;height:18px;border-radius:3px;object-fit:cover;border:1px solid rgba(255,255,255,0.12);flex-shrink:0}
+.flag-initials{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:18px;background:#1e2740;border-radius:3px;
+  font-size:0.48rem;font-weight:700;color:#64748b;
+  font-family:'JetBrains Mono',monospace;border:1px solid #252d40;flex-shrink:0;
+}
+
+/* resolution highlight */
+.resolution-big{
+  text-align:center;padding:12px;
+  background:rgba(168,85,247,0.08);
+  border:1px solid rgba(168,85,247,0.15);
+  border-radius:10px;margin-bottom:10px;
+}
+.res-value{font-size:1.2rem;font-weight:700;color:#c084fc;font-family:'JetBrains Mono',monospace;letter-spacing:-0.02em}
+.res-label{font-size:0.58rem;color:#7c3aed;letter-spacing:0.14em;text-transform:uppercase;margin-top:2px}
+
+/* subtitle footer */
+.subs-section{
+  position:relative;z-index:1;
+  background:rgba(0,0,0,0.2);
+  border-top:1px solid rgba(255,255,255,0.04);
+  padding:14px 24px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+}
+.subs-label{font-size:0.59rem;font-weight:700;letter-spacing:0.18em;color:#334155;text-transform:uppercase;font-family:'JetBrains Mono',monospace;flex-shrink:0}
+.sub-flag-group{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.sub-flag{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:18px;border-radius:3px;background:#131e2f;
+  border:1px solid #1e2d42;overflow:hidden;cursor:default;
+  transition:transform 0.15s;
+}
+.sub-flag:hover{transform:scale(1.2)}
+.sub-flag img{width:100%;height:100%;object-fit:cover}
+.sub-flag-init{font-size:0.48rem;font-weight:700;color:#475569;font-family:'JetBrains Mono',monospace}
+.sub-count{font-size:0.65rem;color:#334155;font-family:'JetBrains Mono',monospace}
+
+.card-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(59,130,246,0.3),transparent);margin:0;position:relative;z-index:1}
+
+.action-row{display:flex;gap:10px;margin-top:12px;justify-content:flex-end}
+#output-card{display:none}
+
+.spinner{display:inline-block;width:11px;height:11px;border:2px solid rgba(255,255,255,0.25);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;margin-right:6px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="logo">
+    <div class="logo-icon">🎬</div>
+    <h1>MediaInfo Card</h1>
+  </div>
+  <p>Paste MediaInfo text → Generate card → Download PNG</p>
+</div>
+
+<div class="editor-wrap">
+  <textarea id="inputText" placeholder="Paste MediaInfo text here...
+(General, Video, Audio, Text sections)"></textarea>
+  <div class="btn-group">
+    <button class="btn-primary" onclick="convert()">▶ Generate</button>
+    <button class="btn-secondary" onclick="clearAll()">✕ Clear</button>
+  </div>
+</div>
+
+<div class="error-msg" id="errorMsg"></div>
+
+<div class="result-wrap" id="output-card">
+  <div id="mediaCard">
+    <div class="card-glow"></div>
+    <div class="card-header">
+      <div class="header-icon">🎬</div>
+      <div class="header-text">
+        <div class="filename" id="outFilename">—</div>
+        <div class="file-meta" id="outMeta">MediaInfo Report</div>
+      </div>
+      <div class="header-badge" id="outBadge">MKV</div>
+    </div>
+    <div class="card-divider"></div>
+    <div class="card-body">
+      <div class="section section-general" id="secGeneral">
+        <div class="section-title"><div class="title-pip"></div>General</div>
+      </div>
+      <div class="section section-video" id="secVideo">
+        <div class="section-title"><div class="title-pip"></div>Video</div>
+      </div>
+      <div class="section section-audio" id="secAudio">
+        <div class="section-title"><div class="title-pip"></div>Audio</div>
+      </div>
+    </div>
+    <div class="subs-section" id="secSubs">
+      <span class="subs-label">Subtitles</span>
+      <div class="sub-flag-group" id="subFlags"></div>
+      <span class="sub-count" id="subCount"></span>
+    </div>
+  </div>
+  <div class="action-row">
+    <button class="btn-secondary" onclick="convert()">↺ Re-render</button>
+    <button class="btn-png" id="pngBtn" onclick="exportPNG()">⬇ Download PNG</button>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// MAPPING language → ISO 3166-1 alpha-2 country code
+// Flag filenames in the flags/ folder must match these codes
+// Example: "English" → "gb" → flags/gb.png
+// Add new lines here for additional languages
+// ─────────────────────────────────────────────────────────────
+const LANG_TO_CODE = {
+  // East Asia
+  mandarin: 'cn', chinese: 'cn', hans: 'cn', hant: 'tw', cantonese: 'hk',
+  japanese: 'jp', korean: 'kr',
+  // Southeast Asia
+  indonesian: 'id', bahasa: 'id', malay: 'my', malaysian: 'my',
+  thai: 'th', vietnamese: 'vn', filipino: 'ph', tagalog: 'ph',
+  burmese: 'mm', khmer: 'kh', cambodian: 'kh', lao: 'la',
+  // South Asia
+  hindi: 'in', tamil: 'in', telugu: 'in', sinhala: 'lk', nepali: 'np', bengali: 'bd', urdu: 'pk',
+  // Middle East
+  arabic: 'sa', persian: 'ir', hebrew: 'il', turkish: 'tr',
+  // Western Europe
+  english: 'gb', french: 'fr', german: 'de', spanish: 'es',
+  portuguese: 'pt', italian: 'it', dutch: 'nl', greek: 'gr',
+  // Northern & Eastern Europe
+  swedish: 'se', norwegian: 'no', danish: 'dk', finnish: 'fi',
+  russian: 'ru', ukrainian: 'ua', polish: 'pl', czech: 'cz',
+  hungarian: 'hu', romanian: 'ro', bulgarian: 'bg',
+};
+
+const FLAGS_FOLDER = 'flags/';
+const FLAG_EXTS = ['png', 'jpg', 'jpeg', 'webp', 'svg'];
+const flagCache = {};
+let parsedSections = [];
+
+// ─────────────────────────────────────────────────────────────
+// PARSER
+// ─────────────────────────────────────────────────────────────
+function parseSections(text) {
+  const lines = text.split('\n');
+  const sections = [];
+  let current = null;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (/^(General|Video|Audio\s*#?\d*|Text\s*#?\d*|Image|Menu)$/i.test(trimmed)) {
+      current = { type: trimmed, fields: {} };
+      sections.push(current);
+    } else if (current && line.includes(':')) {
+      const idx = line.indexOf(':');
+      const key = line.substring(0, idx).trim();
+      const val = line.substring(idx + 1).trim();
+      if (key && val) current.fields[key] = val;
+    }
+  }
+  return sections;
+}
+
+function getField(fields, ...keys) {
+  for (const k of keys) {
+    const found = Object.keys(fields).find(fk => fk.toLowerCase().includes(k.toLowerCase()));
+    if (found) return fields[found];
+  }
+  return null;
+}
+
+function langToCode(lang) {
+  if (!lang) return null;
+  const l = lang.toLowerCase();
+  for (const [keyword, code] of Object.entries(LANG_TO_CODE)) {
+    if (l.includes(keyword)) return code;
+  }
+  return null;
+}
+
+function langDisplay(lang) {
+  if (!lang) return 'Unknown';
+  const l = lang.toLowerCase();
+  const map = {
+    english:'English', japanese:'Japanese', korean:'Korean', chinese:'Chinese',
+    mandarin:'Mandarin', cantonese:'Cantonese', french:'French', german:'German',
+    spanish:'Spanish', italian:'Italian', portuguese:'Portuguese', arabic:'Arabic',
+    russian:'Russian', thai:'Thai', vietnamese:'Vietnamese', indonesian:'Indonesian',
+    malay:'Malay', hindi:'Hindi', turkish:'Turkish', dutch:'Dutch',
+  };
+  for (const [k, v] of Object.entries(map)) { if (l.includes(k)) return v; }
+  return lang.charAt(0).toUpperCase() + lang.slice(1).split(' ')[0];
+}
+
+// ─────────────────────────────────────────────────────────────
+// FLAG LOADER
+// Attempts to load flags/{code}.png, .jpg, .jpeg, .webp, .svg
+// Converts to dataUrl so html2canvas can capture them
+// ─────────────────────────────────────────────────────────────
+function loadFlag(code) {
+  if (!code) return Promise.resolve(null);
+  if (flagCache[code] !== undefined) return Promise.resolve(flagCache[code]);
+  const tryExt = (i) => {
+    if (i >= FLAG_EXTS.length) { flagCache[code] = null; return Promise.resolve(null); }
+    const path = `${FLAGS_FOLDER}${code}.${FLAG_EXTS[i]}`;
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || 40;
+        canvas.height = img.naturalHeight || 28;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        flagCache[code] = canvas.toDataURL('image/png');
+        resolve(flagCache[code]);
+      };
+      img.onerror = () => resolve(tryExt(i + 1));
+      img.src = path;
+    });
+  };
+  return tryExt(0);
+}
+
+async function loadAllFlags(codes) {
+  await Promise.all([...new Set(codes.filter(Boolean))].map(c => loadFlag(c)));
+}
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
+function makeRow(lbl, val) {
+  if (!val) return '';
+  return `<div class="row"><span class="lbl">${lbl}</span><span class="val">${val}</span></div>`;
+}
+
+function makeVideoStat(lbl, val) {
+  if (!val) return '';
+  return `<div class="video-stat"><span class="lbl">${lbl}</span><span class="val">${val}</span></div>`;
+}
+
+function flagImgTag(dataUrl, alt) {
+  if (dataUrl) return `<img class="flag-img-card" src="${dataUrl}" width="26" height="18" alt="${alt}">`;
+  const initials = (alt || '?').replace(/\s*\(.*\)/, '').trim().substring(0, 2).toUpperCase();
+  return `<span class="flag-initials">${initials}</span>`;
+}
+
+function subFlagHtml(dataUrl, lang) {
+  const initials = (lang || '?').replace(/\s*\(.*\)/, '').trim().substring(0, 2).toUpperCase();
+  return `<div class="sub-flag" title="${lang}">` + (
+    dataUrl
+      ? `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover" alt="${lang}">`
+      : `<span class="sub-flag-init">${initials}</span>`
+  ) + `</div>`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// MAIN CONVERT
+// ─────────────────────────────────────────────────────────────
+async function convert() {
+  const text = document.getElementById('inputText').value.trim();
+  const errEl = document.getElementById('errorMsg');
+  errEl.style.display = 'none';
+
+  if (!text) {
+    errEl.textContent = 'Please paste MediaInfo text first!';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  parsedSections = parseSections(text);
+  if (!parsedSections.length) {
+    errEl.textContent = 'Unable to parse MediaInfo. Please ensure the format is correct.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const general = parsedSections.find(s => /^general$/i.test(s.type));
+  const video   = parsedSections.find(s => /^video$/i.test(s.type));
+  const texts   = parsedSections.filter(s => /^text/i.test(s.type));
+  const audioSecs = parsedSections.filter(s => /^audio/i.test(s.type));
+
+  const allLangs = [
+    ...audioSecs.map(a => getField(a.fields, 'Language') || ''),
+    ...texts.map(t => getField(t.fields, 'Language') || ''),
+  ];
+  const allCodes = allLangs.map(l => langToCode(l));
+  await loadAllFlags(allCodes);
+
+  // Filename & header
+  const fullname = general ? (getField(general.fields, 'Complete name', 'Filename', 'Name') || '') : '';
+  const parts = fullname.replace(/\\/g, '/').split('/');
+  const fname = parts[parts.length - 1] || fullname || 'Unknown file';
+  document.getElementById('outFilename').textContent = fname;
+
+  // Format badge
+  const fmtRaw = general ? getField(general.fields, 'Format') : '';
+  const ext = fname.split('.').pop().toUpperCase();
+  document.getElementById('outBadge').textContent = ext || fmtRaw || 'FILE';
+
+  // Meta line
+  const dur = general ? getField(general.fields, 'Duration') : '';
+  const sz  = general ? getField(general.fields, 'File size', 'Size') : '';
+  const metaParts = [dur, sz].filter(Boolean);
+  document.getElementById('outMeta').textContent = metaParts.length ? metaParts.join(' · ') : 'MediaInfo Report';
+
+  // ── General section ──
+  let gHtml = `<div class="section-title"><div class="title-pip"></div>General</div>`;
+  if (general) {
+    const f = general.fields;
+    gHtml += makeRow('Format',       getField(f, 'Format'));
+    gHtml += makeRow('Duration',     getField(f, 'Duration'));
+    gHtml += makeRow('Bitrate',      getField(f, 'Overall bit rate', 'Overall bitrate'));
+    gHtml += makeRow('File size',    getField(f, 'File size', 'Size'));
+    gHtml += makeRow('Encoded date', getField(f, 'Encoded date', 'Tagged date'));
+  }
+  document.getElementById('secGeneral').innerHTML = gHtml;
+
+  // ── Video section ──
+  let vHtml = `<div class="section-title"><div class="title-pip"></div>Video</div>`;
+  if (video) {
+    const f = video.fields;
+    const w = (getField(f, 'Width')  || '').replace(/\s*pixels/i, '').replace(/\s/g, '');
+    const h = (getField(f, 'Height') || '').replace(/\s*pixels/i, '').replace(/\s/g, '');
+    if (w && h) {
+      const label = parseInt(h) >= 2160 ? '4K / UHD' : parseInt(h) >= 1080 ? 'Full HD' : parseInt(h) >= 720 ? 'HD' : 'SD';
+      vHtml += `<div class="resolution-big"><div class="res-value">${w}×${h}</div><div class="res-label">${label}</div></div>`;
+    }
+    const fmt   = getField(f, 'Format/Info', 'Format') || '';
+    const depth = getField(f, 'Bit depth');
+    vHtml += makeVideoStat('Codec',      fmt + (depth ? ` / ${depth}b` : ''));
+    vHtml += makeVideoStat('Aspect',     getField(f, 'Display aspect ratio'));
+    vHtml += makeVideoStat('Frame rate', getField(f, 'Frame rate'));
+    vHtml += makeVideoStat('Bit rate',   getField(f, 'Bit rate'));
+    const profile = getField(f, 'Format profile', 'Codec profile');
+    if (profile) vHtml += makeVideoStat('Profile', profile);
+  }
+  document.getElementById('secVideo').innerHTML = vHtml;
+
+  // ── Audio section ──
+  let aHtml = `<div class="section-title"><div class="title-pip"></div>Audio</div>`;
+  audioSecs.forEach(a => {
+    const f    = a.fields;
+    const lang = getField(f, 'Language') || 'Unknown';
+    const code = langToCode(lang);
+    const dataUrl = code ? (flagCache[code] || null) : null;
+    const fmt  = getField(f, 'Commercial name', 'Format') || '';
+    const layout = getField(f, 'Channel layout') || '';
+    const chRaw  = getField(f, 'Channel(s)', 'Channels') || '';
+    let ch = '';
+    if (layout) {
+      const p = layout.trim().split(/\s+/);
+      const lfe = p.filter(x => x === 'LFE').length;
+      ch = `${p.length - lfe}.${lfe}ch`;
+    } else if (chRaw) {
+      ch = chRaw.replace(' channels', 'ch');
+    }
+    const br         = getField(f, 'Bit rate') || '';
+    const sampleRate = getField(f, 'Sampling rate') || '';
+    aHtml += `<div class="audio-item">${flagImgTag(dataUrl, lang)}<div class="audio-info"><div class="audio-lang">${langDisplay(lang)}</div><div class="audio-detail">${[fmt, ch, br, sampleRate].filter(Boolean).join(' · ')}</div></div></div>`;
+  });
+  if (!audioSecs.length) aHtml += `<span style="color:#334155;font-size:0.7rem">No audio track found</span>`;
+  document.getElementById('secAudio').innerHTML = aHtml;
+
+  // ── Subtitles ──
+  const subsEl = document.getElementById('secSubs');
+  if (texts.length) {
+    subsEl.style.display = 'flex';
+    document.getElementById('subFlags').innerHTML = texts.map(t => {
+      const lang    = getField(t.fields, 'Language') || '';
+      const code    = langToCode(lang);
+      const dataUrl = code ? (flagCache[code] || null) : null;
+      return subFlagHtml(dataUrl, lang);
+    }).join('');
+    document.getElementById('subCount').textContent = `${texts.length} track${texts.length > 1 ? 's' : ''}`;
+  } else {
+    subsEl.style.display = 'none';
+  }
+
+  document.getElementById('output-card').style.display = 'block';
+}
+
+// ─────────────────────────────────────────────────────────────
+// EXPORT PNG
+// ─────────────────────────────────────────────────────────────
+async function exportPNG() {
+  const btn = document.getElementById('pngBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Generating...';
+  await new Promise(r => setTimeout(r, 120));
+  try {
+    const card = document.getElementById('mediaCard');
+    const canvas = await html2canvas(card, {
+      backgroundColor: '#0b0f1a',
+      scale: 3,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+    });
+    const link = document.createElement('a');
+    const fname = (document.getElementById('outFilename').textContent || 'mediainfo').replace(/\.[^.]+$/, '');
+    link.download = fname + '_mediainfo.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch (e) {
+    alert('Export failed: ' + e.message);
+  }
+  btn.disabled = false;
+  btn.innerHTML = '⬇ Download PNG';
+}
+
+function clearAll() {
+  document.getElementById('inputText').value = '';
+  document.getElementById('output-card').style.display = 'none';
+  document.getElementById('errorMsg').style.display = 'none';
+  parsedSections = [];
+}
+</script>
+</body>
+</html>
